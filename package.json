@@ -8,7 +8,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "set-role": "tsx scripts/set-role.ts"
+    "set-role": "tsx scripts/set-role.ts",
+    "get-token": "tsx scripts/get-token.ts"
   },
   "engines": {
     "node": ">=20"

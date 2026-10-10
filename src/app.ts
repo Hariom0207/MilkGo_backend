@@ -6,7 +6,9 @@ import { errorHandler, notFound } from "./lib/errors.js";
 import { requireAuth } from "./middleware/auth.js";
 import customers from "./routes/customers.js";
 import health from "./routes/health.js";
+import payments from "./routes/payments.js";
 import products from "./routes/products.js";
+import sales from "./routes/sales.js";
 import suppliers from "./routes/suppliers.js";
 
 export function createApp() {
@@ -23,6 +25,8 @@ export function createApp() {
   api.use("/customers", customers);
   api.use("/products", products);
   api.use("/suppliers", suppliers);
+  api.use("/sales", sales);
+  api.use("/payments", payments);
   app.use("/api/v1", api);
 
   app.use(notFound);
