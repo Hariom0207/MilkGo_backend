@@ -12,6 +12,7 @@ import purchases from "./routes/purchases.js";
 import sales from "./routes/sales.js";
 import salesOrders from "./routes/salesOrders.js";
 import suppliers from "./routes/suppliers.js";
+import users from "./routes/users.js";
 
 export function createApp() {
   const app = express();
@@ -24,6 +25,7 @@ export function createApp() {
   // Everything under /api needs a valid Firebase ID token.
   const api = express.Router();
   api.use(requireAuth);
+  api.use("/", users); // /me, /admin/users, /team/staff
   api.use("/customers", customers);
   api.use("/products", products);
   api.use("/suppliers", suppliers);

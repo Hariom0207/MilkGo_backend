@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 import { db } from "../config/firebase.js";
 import { HttpError } from "../lib/errors.js";
+import { visibleTo } from "../middleware/auth.js";
 
 // Money is integer paise; quantity may be fractional (litres).
 const saleSchema = z.object({
@@ -24,14 +25,17 @@ const router = Router();
 
 router.get("/", async (req, res) => {
   let q: FirebaseFirestore.Query = db.collection("sales");
+  if (req.user!.role !== "admin") q = q.where("vendorId", "in", [req.user!.vendorId, null]);
   if (typeof req.query.customerId === "string") q = q.where("customerId", "==", req.query.customerId);
-  const snap = await q.orderBy("createdAt", "desc").limit(500).get();
-  res.json(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  const snap = await q.limit(500).get();
+  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Record<string, unknown>));
+  rows.sort((a, b) => ((b.createdAt as any)?.toMillis?.() ?? 0) - ((a.createdAt as any)?.toMillis?.() ?? 0));
+  res.json(rows);
 });
 
 router.get("/:id", async (req, res) => {
   const doc = await db.collection("sales").doc(String(req.params.id)).get();
-  if (!doc.exists) throw new HttpError(404, "Not found");
+  if (!doc.exists || !visibleTo(req.user!, doc.get("vendorId"))) throw new HttpError(404, "Not found");
   res.json({ id: doc.id, ...doc.data() });
 });
 
@@ -47,7 +51,7 @@ router.post("/", async (req, res) => {
       customerRef,
       ...productIds.map((id) => db.collection("products").doc(id)),
     );
-    if (!customerDoc.exists) throw new HttpError(400, "Customer not found");
+    if (!customerDoc.exists || !visibleTo(req.user!, customerDoc.get("vendorId"))) throw new HttpError(400, "Customer not found");
     const products = new Map(productDocs.map((d) => [d.id, d]));
 
     const items = input.items.map((i) => {
@@ -76,6 +80,7 @@ router.post("/", async (req, res) => {
       amountPaid: input.amountPaid,
       due,
       ...(input.note ? { note: input.note } : {}),
+      vendorId: req.user!.role === "admin" ? null : req.user!.vendorId,
       createdAt: FieldValue.serverTimestamp(),
       createdBy: req.user!.uid,
     };
