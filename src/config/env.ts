@@ -7,4 +7,5 @@ export const env = {
     .map((o) => o.trim())
     .filter(Boolean),
   projectId: process.env.FIREBASE_PROJECT_ID,
+  adminEmails: (process.env.ADMIN_EMAILS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
 };
