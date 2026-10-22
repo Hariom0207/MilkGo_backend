@@ -4,28 +4,26 @@ import type { ZodObject, ZodRawShape } from "zod";
 import { db } from "../config/firebase.js";
 import { HttpError } from "./errors.js";
 import { requireRole, visibleTo } from "../middleware/auth.js";
+import { ownerId, scopeIdFromReq, scopedDocs } from "./scope.js";
 
 /**
- * CRUD for a Firestore collection, scoped by vendorId:
- * admin sees all; vendor/staff see own vendor's docs + global (vendorId null) docs.
- * Reads: any approved user (scoped). Create/update: scoped. Delete: admin/vendor only.
+ * CRUD scoped by vendorId. Admin sees all (or `?vendorId=`). Vendor and staff see that vendor only.
+ * `staffCreate`: staff may POST (purchase and sales records) but never edit or delete.
  */
 export function crudRouter(
   collection: string,
   schema: ZodObject<ZodRawShape>,
   initial: Record<string, unknown> = {},
+  staffCreate = false,
 ) {
   const router = Router();
   const col = db.collection(collection);
+  const staffBlocked = (req: { user?: { role: string } }) => {
+    if (req.user?.role === "staff") throw new HttpError(403, "Staff can only add purchase and sales records");
+  };
 
   router.get("/", async (req, res) => {
-    const u = req.user!;
-    const snap = u.role === "admin"
-      ? await col.orderBy("createdAt", "desc").limit(500).get()
-      : await col.where("vendorId", "in", [u.vendorId, null]).limit(500).get();
-    const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Record<string, unknown>));
-    if (u.role !== "admin") rows.sort((a, b) => ((b.createdAt as any)?.toMillis?.() ?? 0) - ((a.createdAt as any)?.toMillis?.() ?? 0));
-    res.json(rows);
+    res.json(await scopedDocs(collection, scopeIdFromReq(req)));
   });
 
   const getOwned = async (req: any) => {
@@ -40,8 +38,9 @@ export function crudRouter(
   });
 
   router.post("/", async (req, res) => {
+    if (req.user!.role === "staff" && !staffCreate) staffBlocked(req);
     const data = schema.parse(req.body);
-    const vendorId = req.user!.role === "admin" ? null : req.user!.vendorId;
+    const vendorId = ownerId(req.user!);
     const ref = await col.add({
       ...initial, ...data, vendorId,
       createdAt: FieldValue.serverTimestamp(), createdBy: req.user!.uid,
@@ -50,6 +49,8 @@ export function crudRouter(
   });
 
   router.patch("/:id", async (req, res) => {
+    const staffStatusOnly = req.user!.role === "staff" && staffCreate && Object.keys(req.body ?? {}).every((k) => k === "status");
+    if (req.user!.role === "staff" && !staffStatusOnly) staffBlocked(req);
     const partial = schema.partial().parse(req.body);
     const doc = await getOwned(req);
     // Non-admins may only edit their own vendor's docs (not global ones).

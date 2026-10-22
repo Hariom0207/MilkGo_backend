@@ -5,6 +5,7 @@ import { env } from "./config/env.js";
 import { errorHandler, notFound } from "./lib/errors.js";
 import { requireAuth } from "./middleware/auth.js";
 import customers from "./routes/customers.js";
+import dashboard from "./routes/dashboard.js";
 import health from "./routes/health.js";
 import payments from "./routes/payments.js";
 import products from "./routes/products.js";
@@ -25,7 +26,8 @@ export function createApp() {
   // Everything under /api needs a valid Firebase ID token.
   const api = express.Router();
   api.use(requireAuth);
-  api.use("/", users); // /me, /admin/users, /team/staff
+  api.use("/", users); // /me, /admin/users, /admin/vendors, /team/staff
+  api.use("/dashboard", dashboard);
   api.use("/customers", customers);
   api.use("/products", products);
   api.use("/suppliers", suppliers);

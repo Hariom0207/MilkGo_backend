@@ -21,4 +21,4 @@ export const purchaseSchema = z.object({
   status: z.enum(["Paid", "Pending"]).default("Pending"),
 });
 
-export default crudRouter("purchases", purchaseSchema);
+export default crudRouter("purchases", purchaseSchema, {}, true);
