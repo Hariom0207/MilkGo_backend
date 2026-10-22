@@ -74,6 +74,6 @@ export function requireRole(...roles: Role[]) {
   };
 }
 
-/** Non-admins only see their vendor's docs (+ global admin docs where vendorId is null). */
+/** Admin sees every doc. Everyone else sees only their vendor's docs. */
 export const visibleTo = (u: AuthUser, docVendorId: unknown) =>
-  u.role === "admin" || docVendorId == null || docVendorId === u.vendorId;
+  u.role === "admin" || docVendorId === u.vendorId;

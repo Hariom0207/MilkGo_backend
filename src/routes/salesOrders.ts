@@ -4,6 +4,7 @@ import { crudRouter } from "../lib/crud.js";
 // Money is integer paise; date is YYYY-MM-DD, time is HH:mm.
 export const salesOrderSchema = z.object({
   customerName: z.string().min(1),
+  customerId: z.string().optional().nullable(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/),
   items: z
@@ -21,4 +22,4 @@ export const salesOrderSchema = z.object({
   status: z.enum(["Paid", "Pending"]).default("Pending"),
 });
 
-export default crudRouter("salesOrders", salesOrderSchema);
+export default crudRouter("salesOrders", salesOrderSchema, {}, true);

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "../config/firebase.js";
 import { HttpError } from "../lib/errors.js";
 import { visibleTo } from "../middleware/auth.js";
+import { ownerId, scopeIdFromReq, scopedDocs } from "../lib/scope.js";
 
 // Money is integer paise; quantity may be fractional (litres).
 const saleSchema = z.object({
@@ -24,12 +25,8 @@ const saleSchema = z.object({
 const router = Router();
 
 router.get("/", async (req, res) => {
-  let q: FirebaseFirestore.Query = db.collection("sales");
-  if (req.user!.role !== "admin") q = q.where("vendorId", "in", [req.user!.vendorId, null]);
-  if (typeof req.query.customerId === "string") q = q.where("customerId", "==", req.query.customerId);
-  const snap = await q.limit(500).get();
-  const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Record<string, unknown>));
-  rows.sort((a, b) => ((b.createdAt as any)?.toMillis?.() ?? 0) - ((a.createdAt as any)?.toMillis?.() ?? 0));
+  let rows = await scopedDocs("sales", scopeIdFromReq(req));
+  if (typeof req.query.customerId === "string") rows = rows.filter((r) => r.customerId === req.query.customerId);
   res.json(rows);
 });
 
@@ -80,7 +77,7 @@ router.post("/", async (req, res) => {
       amountPaid: input.amountPaid,
       due,
       ...(input.note ? { note: input.note } : {}),
-      vendorId: req.user!.role === "admin" ? null : req.user!.vendorId,
+      vendorId: ownerId(req.user!),
       createdAt: FieldValue.serverTimestamp(),
       createdBy: req.user!.uid,
     };
