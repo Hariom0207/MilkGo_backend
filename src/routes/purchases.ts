@@ -4,6 +4,7 @@ import { crudRouter } from "../lib/crud.js";
 // Money is integer paise; date is YYYY-MM-DD, time is HH:mm.
 export const purchaseSchema = z.object({
   supplierName: z.string().min(1),
+  supplierId: z.string().min(1, "Select a supplier from the list (or add a new one)"),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/),
   items: z

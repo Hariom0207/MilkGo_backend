@@ -3,7 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import type { ZodObject, ZodRawShape } from "zod";
 import { db } from "../config/firebase.js";
 import { HttpError } from "./errors.js";
-import { requireRole, visibleTo } from "../middleware/auth.js";
+import { visibleTo } from "../middleware/auth.js";
 import { ownerId, scopeIdFromReq, scopedDocs } from "./scope.js";
 
 /**
@@ -49,8 +49,8 @@ export function crudRouter(
   });
 
   router.patch("/:id", async (req, res) => {
-    const staffStatusOnly = req.user!.role === "staff" && staffCreate && Object.keys(req.body ?? {}).every((k) => k === "status");
-    if (req.user!.role === "staff" && !staffStatusOnly) staffBlocked(req);
+    // staffCreate collections (sales/purchases): staff may edit the full record.
+    if (req.user!.role === "staff" && !staffCreate) staffBlocked(req);
     const partial = schema.partial().parse(req.body);
     const doc = await getOwned(req);
     // Non-admins may only edit their own vendor's docs (not global ones).
@@ -59,7 +59,10 @@ export function crudRouter(
     res.json({ id: doc.id, ...partial });
   });
 
-  router.delete("/:id", requireRole("admin", "vendor"), async (req, res) => {
+  router.delete("/:id", async (req, res) => {
+    // staffCreate collections: staff may delete their vendor's sales/purchases.
+    if (req.user!.role === "staff" && !staffCreate) throw new HttpError(403, "Staff can only add purchase and sales records");
+    if (req.user!.role !== "admin" && req.user!.role !== "vendor" && req.user!.role !== "staff") throw new HttpError(403, "Not allowed");
     const doc = await getOwned(req);
     if (req.user!.role !== "admin" && doc.get("vendorId") !== req.user!.vendorId) throw new HttpError(403, "Not allowed");
     await doc.ref.delete();
